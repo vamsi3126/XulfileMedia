@@ -42,17 +42,17 @@ export const analyzeMedia = async (req, res) => {
 
         const formats = metadata.formats
             .filter(f => f.protocol !== 'm3u8_native')
+            .filter(f => f.vcodec !== 'none' || ['jpg', 'png', 'webp'].includes(f.ext)) // only video or image, no audio-only
             .map(f => ({
                 format_id: f.format_id,
                 ext: f.ext,
-                resolution: f.resolution || 'audio-only',
+                resolution: f.resolution || 'original',
                 filesize: f.filesize,
                 format_note: f.format_note,
                 vcodec: f.vcodec,
                 acodec: f.acodec,
                 url: f.url
-            }))
-            .filter(f => f.resolution !== 'audio-only' || f.acodec !== 'none');
+            }));
 
         res.json({
             title: metadata.title,

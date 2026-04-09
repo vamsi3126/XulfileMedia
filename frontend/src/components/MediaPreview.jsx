@@ -1,23 +1,16 @@
 import React, { useState } from 'react';
-import { Download, Film, Music, ShieldCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Download, Film, Image, ShieldCheck, Loader2 } from 'lucide-react';
 
 const MediaPreview = ({ data, originalUrl }) => {
-    // Filter and sort video formats (highest quality first)
-    const videoFormats = data.formats
-        .filter(f => f.vcodec !== 'none' && f.resolution !== 'audio-only')
-        .reverse() // yt-dlp sorts ascending by default, reverse it for highest first
-        .filter((v, i, a) => a.findIndex(t => (t.resolution === v.resolution)) === i); // remove duplicate resolutions
+    // Get all formats with video (not audio-only)
+    const mediaFormats = data.formats
+        .filter(f => f.vcodec !== 'none' || f.ext === 'jpg' || f.ext === 'png' || f.ext === 'webp')
+        .reverse()
+        .filter((v, i, a) => a.findIndex(t => (t.resolution === v.resolution)) === i);
 
-    const audioFormats = data.formats.filter(f => f.resolution === 'audio-only' || f.vcodec === 'none');
-
-    // Make options readable
-    const formatResolution = (res) => {
-        if (!res) return 'Unknown';
-        if (typeof res === 'string') return res;
-        return res + 'p';
-    };
     const [downloading, setDownloading] = useState(false);
+
+    const isImage = (f) => ['jpg', 'png', 'webp', 'jpeg'].includes(f.ext) || f.vcodec === 'none';
 
     const handleDownload = async (formatId, directUrl) => {
        setDownloading(true);
@@ -37,10 +30,12 @@ const MediaPreview = ({ data, originalUrl }) => {
 
          if (response.ok) {
             const blob = await response.blob();
+            const contentType = response.headers.get('content-type') || '';
+            const ext = contentType.includes('image') ? '.jpg' : '.mp4';
             const downloadUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = downloadUrl;
-            a.download = (data.title || 'XulfMedia-Download').replace(/[^a-zA-Z0-9\s\-_.]/g, '') + '.mp4';
+            a.download = (data.title || 'XulfMedia-Download').replace(/[^a-zA-Z0-9\s\-_.]/g, '') + ext;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -85,7 +80,7 @@ const MediaPreview = ({ data, originalUrl }) => {
             {/* Details section */}
             <div className="p-8 w-full md:w-7/12 flex flex-col">
                 <h3 className="text-xl font-bold text-slate-900 mb-2 line-clamp-2" title={data.title}>
-                    {data.title || 'Untitled Media Segment'}
+                    {data.title || 'Untitled Media'}
                 </h3>
                 
                 <div className="flex items-center gap-2 text-sm text-green-600 font-medium mb-6 bg-green-50 px-3 py-2 rounded-lg self-start">
@@ -93,40 +88,33 @@ const MediaPreview = ({ data, originalUrl }) => {
                     Ready for download
                 </div>
 
+                {downloading && (
+                    <div className="flex items-center gap-2 text-sm text-blue-600 font-medium mb-4 bg-blue-50 px-3 py-2 rounded-lg self-start">
+                        <Loader2 size={16} className="animate-spin" /> 
+                        Downloading... please wait
+                    </div>
+                )}
+
                 <div className="flex-1">
                     <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <Film size={16}/> Video Formats
+                        <Download size={16}/> Available Downloads
                     </h4>
-                    <div className="grid grid-cols-2 gap-3 mb-6 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
-                        {videoFormats.slice(0, 8).map((f, i) => (
+                    <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-2">
+                        {mediaFormats.map((f, i) => (
                             <button 
                                 key={i}
+                                disabled={downloading}
                                 onClick={() => handleDownload(f.format_id, f.url)}
-                                className="border border-slate-200 rounded-xl p-3 flex flex-col items-start hover:border-primary hover:bg-sky-50 transition-colors group text-left"
-                            >
-                                <span className="font-bold text-slate-800 group-hover:text-primary transition-colors">
-                                    {formatResolution(f.resolution)}
-                                </span>
-                                <span className="text-xs text-slate-500 mt-1">{f.ext} • {f.format_note || 'Std'}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <Music size={16}/> Audio Download
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3">
-                        {audioFormats.slice(0, 2).map((f, i) => (
-                             <button 
-                                key={`a-${i}`}
-                                onClick={() => handleDownload(f.format_id, f.url)}
-                                className="border border-slate-200 rounded-xl p-3 flex items-center justify-between hover:border-primary hover:bg-sky-50 transition-colors group text-left"
+                                className="border border-slate-200 rounded-xl p-3 flex items-center justify-between hover:border-primary hover:bg-sky-50 transition-colors group text-left disabled:opacity-50"
                             >
                                 <div>
-                                    <div className="font-bold text-slate-800 group-hover:text-primary transition-colors">Audio Only</div>
-                                    <div className="text-xs text-slate-500 mt-1">{f.ext}</div>
+                                    <span className="font-bold text-slate-800 group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                        {isImage(f) ? <Image size={14} /> : <Film size={14} />}
+                                        {f.resolution || 'Best'}
+                                    </span>
+                                    <span className="text-xs text-slate-500 mt-1 block">{f.ext} • {f.format_note || 'Standard'}</span>
                                 </div>
-                                <Download size={20} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <Download size={18} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                             </button>
                         ))}
                     </div>
