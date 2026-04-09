@@ -1,7 +1,6 @@
 import youtubedl from 'youtube-dl-exec';
-import { spawn } from 'child_process';
 
-// We use the default binary installed by the package instead of assuming it's in PATH
+// We use the default binary installed by the package
 
 export const analyzeMedia = async (req, res) => {
     const { url } = req.body;
@@ -22,7 +21,7 @@ export const analyzeMedia = async (req, res) => {
 
         // Parse and simplify format list
         const formats = metadata.formats
-            .filter(f => f.protocol !== 'm3u8_native') // exclude some weird streams
+            .filter(f => f.protocol !== 'm3u8_native')
             .map(f => ({
                 format_id: f.format_id,
                 ext: f.ext,
@@ -30,9 +29,10 @@ export const analyzeMedia = async (req, res) => {
                 filesize: f.filesize,
                 format_note: f.format_note,
                 vcodec: f.vcodec,
-                acodec: f.acodec
+                acodec: f.acodec,
+                url: f.url // include the direct CDN url for each format
             }))
-            .filter(f => f.resolution !== 'audio-only' || f.acodec !== 'none'); // Ensure either valid video or audio
+            .filter(f => f.resolution !== 'audio-only' || f.acodec !== 'none');
 
         res.json({
             title: metadata.title,
@@ -52,51 +52,29 @@ export const getDownloadStream = async (req, res) => {
     const { url, format } = req.body;
 
     if (!url || !format) {
-        return res.status(400).json({ error: 'URL and formatID are required' });
+        return res.status(400).json({ error: 'URL and format are required' });
     }
 
     try {
-        // Get the path to the bundled yt-dlp binary from youtube-dl-exec
-        const ytdlpPath = youtubedl.getBinaryPath ? youtubedl.getBinaryPath() : 'yt-dlp';
-
-        res.header('Content-Disposition', `attachment; filename="XulfMedia-Download.mp4"`);
-        res.header('Content-Type', 'application/octet-stream');
-
-        const ytdlp = spawn(ytdlpPath, [
-            '-f', format,
-            '-o', '-',
-            '--no-warnings',
-            '--no-check-certificate',
-            url
-        ]);
-
-        ytdlp.stdout.pipe(res);
-
-        ytdlp.stderr.on('data', (data) => {
-            console.log(`yt-dlp stderr: ${data}`);
+        // Use youtube-dl-exec to extract the direct download URL
+        const result = await youtubedl(url, {
+            format: format,
+            getUrl: true,
+            noWarnings: true,
+            noCheckCertificate: true,
         });
 
-        ytdlp.on('error', (err) => {
-            console.error('Spawn error:', err);
-            if (!res.headersSent) {
-                res.status(500).json({ error: 'Download failed to start.' });
-            }
-        });
+        // result is the direct CDN URL string
+        const downloadUrl = typeof result === 'string' ? result.trim() : result;
 
-        ytdlp.on('close', (code) => {
-            if (code !== 0) {
-                console.error(`yt-dlp exited with code ${code}`);
-            }
-        });
-
-        req.on('close', () => {
-             ytdlp.kill();
-        });
+        if (downloadUrl) {
+            res.json({ downloadUrl });
+        } else {
+            res.status(500).json({ error: 'Could not extract download URL.' });
+        }
 
     } catch (error) {
-        console.error("Download Error:", error);
-        if (!res.headersSent) {
-            res.status(500).json({ error: "Download failed." });
-        }
+        console.error("Download URL error:", error.message);
+        res.status(500).json({ error: "Failed to generate download link." });
     }
 };

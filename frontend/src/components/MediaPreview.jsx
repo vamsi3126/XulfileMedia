@@ -18,33 +18,33 @@ const MediaPreview = ({ data, originalUrl }) => {
         return res + 'p';
     };
 
-    const handleDownload = async (formatId) => {
-       // Open in new tab or trigger manual download here
-       // In a real app we might POST `/api/download` via a form submit or file blob
+    const handleDownload = async (formatId, directUrl) => {
+       // If we already have the direct CDN url from the analyze response, use it
+       if (directUrl) {
+           window.open(directUrl, '_blank');
+           return;
+       }
+
+       // Otherwise, ask the backend to extract the download URL
        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-       const urlToFetch = `${apiUrl}/api/download`;
        
        try {
-         const response = await fetch(urlToFetch, {
+         const response = await fetch(`${apiUrl}/api/download`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: originalUrl, format: formatId })
          });
 
-         if(response.ok) {
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = `XulfMedia-Download.mp4`; // fallback name
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+         const data = await response.json();
+
+         if (response.ok && data.downloadUrl) {
+            window.open(data.downloadUrl, '_blank');
          } else {
-             alert('Error executing download stream');
+            alert(data.error || 'Download failed. Please try again.');
          }
        } catch(err) {
-           console.error('Download stream err', err);
+           console.error('Download error:', err);
+           alert('Download failed. Please try again.');
        }
     };
 
@@ -92,7 +92,7 @@ const MediaPreview = ({ data, originalUrl }) => {
                         {videoFormats.slice(0, 8).map((f, i) => (
                             <button 
                                 key={i}
-                                onClick={() => handleDownload(f.format_id)}
+                                onClick={() => handleDownload(f.format_id, f.url)}
                                 className="border border-slate-200 rounded-xl p-3 flex flex-col items-start hover:border-primary hover:bg-sky-50 transition-colors group text-left"
                             >
                                 <span className="font-bold text-slate-800 group-hover:text-primary transition-colors">
@@ -110,7 +110,7 @@ const MediaPreview = ({ data, originalUrl }) => {
                         {audioFormats.slice(0, 2).map((f, i) => (
                              <button 
                                 key={`a-${i}`}
-                                onClick={() => handleDownload(f.format_id)}
+                                onClick={() => handleDownload(f.format_id, f.url)}
                                 className="border border-slate-200 rounded-xl p-3 flex items-center justify-between hover:border-primary hover:bg-sky-50 transition-colors group text-left"
                             >
                                 <div>
