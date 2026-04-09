@@ -17,34 +17,43 @@ const MediaPreview = ({ data, originalUrl }) => {
         if (typeof res === 'string') return res;
         return res + 'p';
     };
+    const [downloading, setDownloading] = useState(false);
 
     const handleDownload = async (formatId, directUrl) => {
-       // If we already have the direct CDN url from the analyze response, use it
-       if (directUrl) {
-           window.open(directUrl, '_blank');
-           return;
-       }
-
-       // Otherwise, ask the backend to extract the download URL
+       setDownloading(true);
        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
        
        try {
          const response = await fetch(`${apiUrl}/api/download`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: originalUrl, format: formatId })
+            body: JSON.stringify({ 
+                url: originalUrl, 
+                format: formatId, 
+                directUrl: directUrl,
+                title: data.title 
+            })
          });
 
-         const data = await response.json();
-
-         if (response.ok && data.downloadUrl) {
-            window.open(data.downloadUrl, '_blank');
+         if (response.ok) {
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = (data.title || 'XulfMedia-Download').replace(/[^a-zA-Z0-9\s\-_.]/g, '') + '.mp4';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
          } else {
-            alert(data.error || 'Download failed. Please try again.');
+            const err = await response.json().catch(() => ({}));
+            alert(err.error || 'Download failed. Please try again.');
          }
        } catch(err) {
            console.error('Download error:', err);
            alert('Download failed. Please try again.');
+       } finally {
+           setDownloading(false);
        }
     };
 

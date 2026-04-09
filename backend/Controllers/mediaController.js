@@ -30,7 +30,7 @@ export const analyzeMedia = async (req, res) => {
                 format_note: f.format_note,
                 vcodec: f.vcodec,
                 acodec: f.acodec,
-                url: f.url // include the direct CDN url for each format
+                url: f.url
             }))
             .filter(f => f.resolution !== 'audio-only' || f.acodec !== 'none');
 
@@ -49,32 +49,73 @@ export const analyzeMedia = async (req, res) => {
 };
 
 export const getDownloadStream = async (req, res) => {
-    const { url, format } = req.body;
+    const { url, format, title, directUrl } = req.body;
 
-    if (!url || !format) {
-        return res.status(400).json({ error: 'URL and format are required' });
+    if (!directUrl && (!url || !format)) {
+        return res.status(400).json({ error: 'Download info is required' });
     }
 
     try {
-        // Use youtube-dl-exec to extract the direct download URL
-        const result = await youtubedl(url, {
-            format: format,
-            getUrl: true,
-            noWarnings: true,
-            noCheckCertificate: true,
-        });
+        // Use the direct CDN URL if provided, otherwise extract it
+        let cdnUrl = directUrl;
 
-        // result is the direct CDN URL string
-        const downloadUrl = typeof result === 'string' ? result.trim() : result;
-
-        if (downloadUrl) {
-            res.json({ downloadUrl });
-        } else {
-            res.status(500).json({ error: 'Could not extract download URL.' });
+        if (!cdnUrl) {
+            const result = await youtubedl(url, {
+                format: format,
+                getUrl: true,
+                noWarnings: true,
+                noCheckCertificate: true,
+            });
+            cdnUrl = typeof result === 'string' ? result.trim() : result;
         }
 
+        if (!cdnUrl) {
+            return res.status(500).json({ error: 'Could not extract download URL.' });
+        }
+
+        // Proxy the download through our server with proper headers to force download
+        const filename = (title || 'XulfMedia-Download').replace(/[^a-zA-Z0-9\s\-_.]/g, '') + '.mp4';
+
+        const cdnResponse = await fetch(cdnUrl);
+
+        if (!cdnResponse.ok) {
+            return res.status(502).json({ error: 'Failed to fetch media from source.' });
+        }
+
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', cdnResponse.headers.get('content-type') || 'application/octet-stream');
+        
+        const contentLength = cdnResponse.headers.get('content-length');
+        if (contentLength) {
+            res.setHeader('Content-Length', contentLength);
+        }
+
+        // Pipe the CDN response directly to the client
+        const reader = cdnResponse.body.getReader();
+        
+        const pump = async () => {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    res.end();
+                    break;
+                }
+                if (!res.write(value)) {
+                    await new Promise(resolve => res.once('drain', resolve));
+                }
+            }
+        };
+
+        req.on('close', () => {
+            reader.cancel();
+        });
+
+        await pump();
+
     } catch (error) {
-        console.error("Download URL error:", error.message);
-        res.status(500).json({ error: "Failed to generate download link." });
+        console.error("Download Error:", error.message);
+        if (!res.headersSent) {
+            res.status(500).json({ error: "Download failed." });
+        }
     }
 };
