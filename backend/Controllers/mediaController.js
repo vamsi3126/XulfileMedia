@@ -1,6 +1,5 @@
 import youtubedl from 'youtube-dl-exec';
-
-// We use the default binary installed by the package
+import { scrapeInstagram } from './instagramScraper.js';
 
 // Detect platform from URL
 const detectPlatform = (url) => {
@@ -20,6 +19,13 @@ export const analyzeMedia = async (req, res) => {
     const platform = detectPlatform(url);
 
     try {
+        // Use dedicated Instagram scraper (no auth needed for public content)
+        if (platform === 'instagram') {
+            const data = await scrapeInstagram(url);
+            return res.json(data);
+        }
+
+        // For YouTube and Facebook, use yt-dlp
         const flags = {
             dumpSingleJson: true,
             noWarnings: true,
@@ -28,19 +34,12 @@ export const analyzeMedia = async (req, res) => {
             preferFreeFormats: true,
         };
 
-        // Instagram needs browser cookies for authentication
-        if (platform === 'instagram') {
-            flags.cookiesFromBrowser = 'chrome';
-        }
-
-        // YouTube - skip dash manifest for cleaner format list
         if (platform === 'youtube') {
             flags.youtubeSkipDashManifest = true;
         }
 
         const metadata = await youtubedl(url, flags);
 
-        // Parse and simplify format list
         const formats = metadata.formats
             .filter(f => f.protocol !== 'm3u8_native')
             .map(f => ({
@@ -64,16 +63,8 @@ export const analyzeMedia = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Yt-dlp error:", error.message);
-
-        // Give user-friendly error messages per platform
-        if (platform === 'instagram') {
-            res.status(500).json({ 
-                error: "Instagram extraction failed. Make sure you are logged into Instagram in Chrome and the post/reel is accessible." 
-            });
-        } else {
-            res.status(500).json({ error: "Failed to analyze link. Ensure the link is public." });
-        }
+        console.error("Error:", error.message);
+        res.status(500).json({ error: error.message || "Failed to analyze link. Ensure the link is public." });
     }
 };
 
@@ -85,34 +76,36 @@ export const getDownloadStream = async (req, res) => {
     }
 
     try {
-        // Use the direct CDN URL if provided, otherwise extract it
         let cdnUrl = directUrl;
 
         if (!cdnUrl) {
             const platform = detectPlatform(url);
-            const flags = {
-                format: format,
-                getUrl: true,
-                noWarnings: true,
-                noCheckCertificate: true,
-            };
 
             if (platform === 'instagram') {
-                flags.cookiesFromBrowser = 'chrome';
+                const data = await scrapeInstagram(url);
+                cdnUrl = data.formats[0]?.url;
+            } else {
+                const result = await youtubedl(url, {
+                    format: format,
+                    getUrl: true,
+                    noWarnings: true,
+                    noCheckCertificate: true,
+                });
+                cdnUrl = typeof result === 'string' ? result.trim() : result;
             }
-
-            const result = await youtubedl(url, flags);
-            cdnUrl = typeof result === 'string' ? result.trim() : result;
         }
 
         if (!cdnUrl) {
             return res.status(500).json({ error: 'Could not extract download URL.' });
         }
 
-        // Proxy the download through our server with proper headers to force download
         const filename = (title || 'XulfMedia-Download').replace(/[^a-zA-Z0-9\s\-_.]/g, '') + '.mp4';
 
-        const cdnResponse = await fetch(cdnUrl);
+        const cdnResponse = await fetch(cdnUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
 
         if (!cdnResponse.ok) {
             return res.status(502).json({ error: 'Failed to fetch media from source.' });
@@ -126,7 +119,6 @@ export const getDownloadStream = async (req, res) => {
             res.setHeader('Content-Length', contentLength);
         }
 
-        // Pipe the CDN response directly to the client
         const reader = cdnResponse.body.getReader();
         
         const pump = async () => {
