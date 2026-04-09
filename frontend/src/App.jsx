@@ -5,6 +5,7 @@ import MediaPreview from './components/MediaPreview';
 
 function App() {
   const [mediaData, setMediaData] = useState(null);
+  const [inputUrl, setInputUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -12,6 +13,7 @@ function App() {
     setLoading(true);
     setError(null);
     setMediaData(null);
+    setInputUrl(url);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const response = await fetch(`${apiUrl}/api/analyze`, {
@@ -57,7 +59,7 @@ function App() {
 
         {mediaData && (
           <div className="mt-12 w-full max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <MediaPreview data={mediaData} originalUrl={mediaData.originalUrl} />
+            <MediaPreview data={mediaData} originalUrl={inputUrl} />
           </div>
         )}
       </main>

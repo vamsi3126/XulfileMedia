@@ -56,12 +56,17 @@ export const getDownloadStream = async (req, res) => {
     }
 
     try {
+        // Get the path to the bundled yt-dlp binary from youtube-dl-exec
+        const ytdlpPath = youtubedl.getBinaryPath ? youtubedl.getBinaryPath() : 'yt-dlp';
+
         res.header('Content-Disposition', `attachment; filename="XulfMedia-Download.mp4"`);
-        // Basic pass-through stream from yt-dlp to browser
-        const ytdlp = spawn('yt-dlp', [
+        res.header('Content-Type', 'application/octet-stream');
+
+        const ytdlp = spawn(ytdlpPath, [
             '-f', format,
-            '-o', '-', // output to stdout
+            '-o', '-',
             '--no-warnings',
+            '--no-check-certificate',
             url
         ]);
 
@@ -71,12 +76,27 @@ export const getDownloadStream = async (req, res) => {
             console.log(`yt-dlp stderr: ${data}`);
         });
 
+        ytdlp.on('error', (err) => {
+            console.error('Spawn error:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Download failed to start.' });
+            }
+        });
+
+        ytdlp.on('close', (code) => {
+            if (code !== 0) {
+                console.error(`yt-dlp exited with code ${code}`);
+            }
+        });
+
         req.on('close', () => {
-             ytdlp.kill(); // clean up if user aborts
+             ytdlp.kill();
         });
 
     } catch (error) {
         console.error("Download Error:", error);
-        res.status(500).json({ error: "Download failed." });
+        if (!res.headersSent) {
+            res.status(500).json({ error: "Download failed." });
+        }
     }
 };

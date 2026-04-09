@@ -3,8 +3,12 @@ import { Download, Film, Music, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MediaPreview = ({ data, originalUrl }) => {
-    // Basic format separation logic
-    const videoFormats = data.formats.filter(f => f.vcodec !== 'none' && f.resolution !== 'audio-only');
+    // Filter and sort video formats (highest quality first)
+    const videoFormats = data.formats
+        .filter(f => f.vcodec !== 'none' && f.resolution !== 'audio-only')
+        .reverse() // yt-dlp sorts ascending by default, reverse it for highest first
+        .filter((v, i, a) => a.findIndex(t => (t.resolution === v.resolution)) === i); // remove duplicate resolutions
+
     const audioFormats = data.formats.filter(f => f.resolution === 'audio-only' || f.vcodec === 'none');
 
     // Make options readable
@@ -24,7 +28,7 @@ const MediaPreview = ({ data, originalUrl }) => {
          const response = await fetch(urlToFetch, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: data.originalUrl || '', format: formatId }) // actually we need original URL. Wait we didn't pass it back
+            body: JSON.stringify({ url: originalUrl, format: formatId })
          });
 
          if(response.ok) {
