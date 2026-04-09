@@ -1,8 +1,7 @@
-import { create } from 'youtube-dl-exec';
+import youtubedl from 'youtube-dl-exec';
 import { spawn } from 'child_process';
 
-// youtube-dl-exec wrapper configured to use yt-dlp by default
-const youtubedl = create('yt-dlp');
+// We use the default binary installed by the package instead of assuming it's in PATH
 
 export const analyzeMedia = async (req, res) => {
     const { url } = req.body;

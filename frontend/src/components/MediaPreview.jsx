@@ -17,7 +17,8 @@ const MediaPreview = ({ data, originalUrl }) => {
     const handleDownload = async (formatId) => {
        // Open in new tab or trigger manual download here
        // In a real app we might POST `/api/download` via a form submit or file blob
-       const urlToFetch = 'http://localhost:5000/api/download';
+       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+       const urlToFetch = `${apiUrl}/api/download`;
        
        try {
          const response = await fetch(urlToFetch, {
