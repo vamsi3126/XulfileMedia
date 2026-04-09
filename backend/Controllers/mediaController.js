@@ -2,6 +2,14 @@ import youtubedl from 'youtube-dl-exec';
 
 // We use the default binary installed by the package
 
+// Detect platform from URL
+const detectPlatform = (url) => {
+    if (url.includes('instagram.com')) return 'instagram';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
+    if (url.includes('facebook.com') || url.includes('fb.watch')) return 'facebook';
+    return 'unknown';
+};
+
 export const analyzeMedia = async (req, res) => {
     const { url } = req.body;
     
@@ -9,15 +17,28 @@ export const analyzeMedia = async (req, res) => {
         return res.status(400).json({ error: 'URL is required' });
     }
 
+    const platform = detectPlatform(url);
+
     try {
-        const metadata = await youtubedl(url, {
+        const flags = {
             dumpSingleJson: true,
             noWarnings: true,
             noCallHome: true,
             noCheckCertificate: true,
             preferFreeFormats: true,
-            youtubeSkipDashManifest: true,
-        });
+        };
+
+        // Instagram needs browser cookies for authentication
+        if (platform === 'instagram') {
+            flags.cookiesFromBrowser = 'chrome';
+        }
+
+        // YouTube - skip dash manifest for cleaner format list
+        if (platform === 'youtube') {
+            flags.youtubeSkipDashManifest = true;
+        }
+
+        const metadata = await youtubedl(url, flags);
 
         // Parse and simplify format list
         const formats = metadata.formats
@@ -38,13 +59,21 @@ export const analyzeMedia = async (req, res) => {
             title: metadata.title,
             thumbnail: metadata.thumbnail,
             duration: metadata.duration,
-            platform: metadata.extractor,
+            platform: metadata.extractor || platform,
             formats: formats
         });
 
     } catch (error) {
         console.error("Yt-dlp error:", error.message);
-        res.status(500).json({ error: "Failed to analyze link. Ensure the link is public." });
+
+        // Give user-friendly error messages per platform
+        if (platform === 'instagram') {
+            res.status(500).json({ 
+                error: "Instagram extraction failed. Make sure you are logged into Instagram in Chrome and the post/reel is accessible." 
+            });
+        } else {
+            res.status(500).json({ error: "Failed to analyze link. Ensure the link is public." });
+        }
     }
 };
 
@@ -60,12 +89,19 @@ export const getDownloadStream = async (req, res) => {
         let cdnUrl = directUrl;
 
         if (!cdnUrl) {
-            const result = await youtubedl(url, {
+            const platform = detectPlatform(url);
+            const flags = {
                 format: format,
                 getUrl: true,
                 noWarnings: true,
                 noCheckCertificate: true,
-            });
+            };
+
+            if (platform === 'instagram') {
+                flags.cookiesFromBrowser = 'chrome';
+            }
+
+            const result = await youtubedl(url, flags);
             cdnUrl = typeof result === 'string' ? result.trim() : result;
         }
 
