@@ -264,9 +264,6 @@ function App() {
                   onClear={handleClearHistory} 
                 />
               )}
-
-              {/* SEO Platform Guides & FAQ Section */}
-              <SeoFeatures />
             </main>
           } 
         />
