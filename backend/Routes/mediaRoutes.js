@@ -5,5 +5,7 @@ const router = express.Router();
 
 router.post('/analyze', analyzeMedia);
 router.post('/download', getDownloadStream);
+router.get('/download', getDownloadStream);
 
 export default router;
+
