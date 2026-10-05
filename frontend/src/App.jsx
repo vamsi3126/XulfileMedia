@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { 
   DownloadCloud, Info, CheckCircle2, ShieldCheck, Zap, 
   HelpCircle, X, ExternalLink, FileCode, Video, Music2, FolderArchive, 
@@ -10,10 +11,14 @@ import RecentDownloads from './components/RecentDownloads';
 import TermsModal from './components/TermsModal';
 import DeveloperModal from './components/DeveloperModal';
 import LanguageSelector from './components/LanguageSelector';
+import SeoFeatures from './components/SeoFeatures';
+import FaqsPage from './pages/FaqsPage';
+import BlogsPage from './pages/BlogsPage';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function App() {
+  const location = useLocation();
   const [mediaData, setMediaData] = useState(null);
   const [inputUrl, setInputUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,6 +42,11 @@ function App() {
       localStorage.setItem('xulfmedia_language', langCode);
     } catch {}
   };
+
+  // Scroll to top upon navigating to a new route
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [location.pathname]);
 
   // Load download history from localStorage
   useEffect(() => {
@@ -164,8 +174,8 @@ function App() {
       <header className="px-4 sm:px-8 py-3.5 sm:py-4 w-full border-b border-slate-100/90 bg-white/90 backdrop-blur-md sticky top-0 z-40">
         <div className="w-[94%] sm:w-[85%] md:w-[70%] mx-auto flex justify-between items-center">
           {/* Brand Logo */}
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 sm:w-[50px] sm:h-[50px] rounded-2xl sm:rounded-[18px] bg-[#FF0038] flex items-center justify-center shadow-lg shadow-red-500/25 text-white shrink-0">
+          <Link to="/" className="flex items-center gap-3.5 group cursor-pointer">
+            <div className="w-12 h-12 sm:w-[50px] sm:h-[50px] rounded-2xl sm:rounded-[18px] bg-[#FF0038] flex items-center justify-center shadow-lg shadow-red-500/25 text-white shrink-0 group-hover:scale-105 transition-transform">
               <DownloadCloud className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.3]" />
             </div>
             <div>
@@ -179,65 +189,109 @@ function App() {
               </div>
               <p className="text-xs sm:text-[13px] text-[#64748B] hidden sm:block font-medium">Universal File & Media Downloader</p>
             </div>
-          </div>
+          </Link>
 
-          {/* Top Right: Language Selector Dropdown */}
-          <div className="flex items-center">
+          {/* Top Right: FAQs, Blogs & Language Selector Dropdown */}
+          <div className="flex items-center gap-3.5 sm:gap-5">
+            <Link
+              to="/faqs"
+              id="nav-faqs-link"
+              className={`text-xs sm:text-[13px] font-semibold transition-colors cursor-pointer ${
+                location.pathname === '/faqs' ? 'text-[#FF0038] font-bold' : 'text-[#6366F1] hover:text-[#4F46E5]'
+              }`}
+            >
+              FAQs
+            </Link>
+            <Link
+              to="/blogs"
+              id="nav-blogs-link"
+              className={`text-xs sm:text-[13px] font-semibold transition-colors cursor-pointer ${
+                location.pathname === '/blogs' ? 'text-[#FF0038] font-bold' : 'text-[#6366F1] hover:text-[#4F46E5]'
+              }`}
+            >
+              Blogs
+            </Link>
             <LanguageSelector currentLang={language} onChange={handleLanguageChange} />
           </div>
         </div>
       </header>
       
-      {/* Main Container - 70% of screen */}
-      <main className="flex-1 w-[94%] sm:w-[85%] md:w-[70%] mx-auto py-8 sm:py-12 flex flex-col items-center z-10">
-        <Hero onAnalyze={handleAnalyze} isLoading={loading} lang={language} />
-        
-        {/* Error Notification */}
-        {error && (
-          <div className="mt-6 bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-start gap-3 w-full shadow-sm animate-in fade-in duration-200">
-            <Info size={20} className="text-[#FF0038] shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm leading-relaxed">
-              <strong className="block font-bold text-rose-900 mb-0.5">Extraction Failed</strong>
-              <p className="text-rose-700">{error}</p>
-              <p className="text-xs text-rose-500 mt-2">
-                Tip: Make sure the URL is public, accessible without login, or click one of the popular platform chips above.
-              </p>
-            </div>
-            <button 
-              type="button" 
-              onClick={() => setError(null)}
-              className="text-rose-400 hover:text-rose-800 p-1 rounded-lg cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
+      {/* Dynamic Page Views */}
+      <Routes>
+        {/* Home Downloader Page */}
+        <Route 
+          path="/" 
+          element={
+            <main className="flex-1 w-[94%] sm:w-[85%] md:w-[70%] mx-auto py-8 sm:py-12 flex flex-col items-center z-10">
+              <Hero onAnalyze={handleAnalyze} isLoading={loading} lang={language} />
+              
+              {/* Error Notification */}
+              {error && (
+                <div className="mt-6 bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-start gap-3 w-full shadow-sm animate-in fade-in duration-200">
+                  <Info size={20} className="text-[#FF0038] shrink-0 mt-0.5" />
+                  <div className="flex-1 text-sm leading-relaxed">
+                    <strong className="block font-bold text-rose-900 mb-0.5">Extraction Failed</strong>
+                    <p className="text-rose-700">{error}</p>
+                    <p className="text-xs text-rose-500 mt-2">
+                      Tip: Make sure the URL is public, accessible without login, or click one of the popular platform chips above.
+                    </p>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setError(null)}
+                    className="text-rose-400 hover:text-rose-800 p-1 rounded-lg cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
 
-        {/* Media Preview Result */}
-        {mediaData && (
-          <div className="mt-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-400">
-            <MediaPreview 
-              data={mediaData} 
-              originalUrl={inputUrl} 
-            />
-          </div>
-        )}
+              {/* Media Preview Result */}
+              {mediaData && (
+                <div className="mt-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-400">
+                  <MediaPreview 
+                    data={mediaData} 
+                    originalUrl={inputUrl} 
+                  />
+                </div>
+              )}
 
-        {/* Recent Activity Dashboard */}
-        {!mediaData && (
-          <RecentDownloads 
-            history={history} 
-            onSelect={(url) => handleAnalyze(url)} 
-            onClear={handleClearHistory} 
-          />
-        )}
-      </main>
+              {/* Recent Activity Dashboard */}
+              {!mediaData && (
+                <RecentDownloads 
+                  history={history} 
+                  onSelect={(url) => handleAnalyze(url)} 
+                  onClear={handleClearHistory} 
+                />
+              )}
+
+              {/* SEO Platform Guides & FAQ Section */}
+              <SeoFeatures />
+            </main>
+          } 
+        />
+
+        {/* Dedicated /faqs Page */}
+        <Route path="/faqs" element={<FaqsPage />} />
+
+        {/* Dedicated /blogs Page */}
+        <Route path="/blogs" element={<BlogsPage />} />
+
+        {/* Fallback to Home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
       {/* Midnight Deep Dark Footer: #1E293B */}
       <footer className="w-full midnight-footer py-6 px-6 text-center text-xs text-slate-400 mt-auto z-10">
         <div className="w-[94%] sm:w-[85%] md:w-[70%] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="font-normal text-slate-400">© 2026 XulfMedia (XulfileMedia). Fast & Universal File Downloader.</p>
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-slate-400">
+            <Link to="/" className="hover:text-white transition-colors font-medium">Home</Link>
+            <span className="text-slate-600">•</span>
+            <Link to="/faqs" className="hover:text-white transition-colors font-medium">FAQs</Link>
+            <span className="text-slate-600">•</span>
+            <Link to="/blogs" className="hover:text-white transition-colors font-medium">Blogs & Guides</Link>
+            <span className="text-slate-600">•</span>
             <button
               type="button"
               onClick={() => setShowDeveloperModal(true)}
@@ -329,7 +383,7 @@ function App() {
                 <span className="font-bold text-[#0F172A] flex items-center gap-2 mb-1">
                   <HardDrive size={15} className="text-[#06B6D4]" /> Cloud Drives & Git Hosting
                 </span>
-                <p className="text-[#64748B]">Google Drive share links, Dropbox share links, GitHub releases and raw binaries.</p>
+                <p className="text-[#64748B]">Google Drive share links, GitHub releases and raw binaries.</p>
               </div>
             </div>
 

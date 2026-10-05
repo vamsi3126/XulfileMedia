@@ -1,0 +1,271 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Search, ChevronDown, HelpCircle, ArrowLeft, CheckCircle2, 
+  MessageCircle, ExternalLink, Sparkles, ShieldCheck, Zap
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const FAQ_CATEGORIES = [
+  'All Questions',
+  'YouTube & Video',
+  'Instagram & Reels',
+  'TikTok & Twitter/X',
+  'Google Drive & Cloud',
+  'File Types & Formats',
+  'Safety & Privacy'
+];
+
+const ALL_FAQS = [
+  // YouTube & Video
+  {
+    category: 'YouTube & Video',
+    q: 'How do I download a YouTube video or Shorts using XulfMedia?',
+    a: 'Copy the YouTube video or Shorts URL from your browser address bar or the YouTube app "Share" button. Paste it into the XulfMedia search console on the home page and click "Fetch Download". You can choose between multiple resolutions (1080p, 720p, 480p) or extract audio as an MP3.'
+  },
+  {
+    category: 'YouTube & Video',
+    q: 'Can I download only the audio (MP3) from a YouTube video?',
+    a: 'Yes. When you analyze a YouTube link, XulfMedia provides audio-only format options. Selecting the audio format downloads the soundtrack directly in clean MP3/M4A format.'
+  },
+  {
+    category: 'YouTube & Video',
+    q: 'Why do some downloaders only give 720p while XulfMedia provides 1080p?',
+    a: 'YouTube splits 1080p and higher resolution streams into separate video and audio channels via DASH streaming. XulfMedia combines and resolves these streams dynamically so you get full high-definition video with synchronized sound.'
+  },
+
+  // Instagram & Reels
+  {
+    category: 'Instagram & Reels',
+    q: 'How to save Instagram Reels with sound directly to iPhone or Android?',
+    a: 'Tap the three dots on any Instagram Reel, select "Link" or "Share to..." and copy the URL. Paste it into XulfMedia and hit "Fetch Download". When the video preview appears, tap download to save the full original video with audio directly to your camera roll.'
+  },
+  {
+    category: 'Instagram & Reels',
+    q: 'Can I download private Instagram posts or stories?',
+    a: 'XulfMedia only processes public Instagram links. If an account is set to private or a story requires login authentication, it cannot be downloaded without violating Instagram privacy terms.'
+  },
+  {
+    category: 'Instagram & Reels',
+    q: 'Does XulfMedia support Instagram carousel posts with multiple slides?',
+    a: 'Yes. If an Instagram post contains multiple images or videos in a carousel, XulfMedia will resolve the primary video or media stream for seamless download.'
+  },
+
+  // TikTok & Twitter/X
+  {
+    category: 'TikTok & Twitter/X',
+    q: 'Can I download TikTok videos without any watermark?',
+    a: 'Yes! XulfMedia queries the original content delivery source rather than the app export stream, giving you clean, watermark-free high-definition video clips.'
+  },
+  {
+    category: 'TikTok & Twitter/X',
+    q: 'How do I download videos and GIFs from Twitter / X?',
+    a: 'Copy the tweet URL containing the video or GIF. Paste it into XulfMedia and click "Fetch Download". Our system extracts the raw MP4 video stream embedded within the tweet.'
+  },
+  {
+    category: 'TikTok & Twitter/X',
+    q: 'Does it support Facebook Watch videos and Reels?',
+    a: 'Yes, public Facebook videos and reels can be downloaded in SD or HD quality by pasting the post link into XulfMedia.'
+  },
+
+  // Google Drive & Cloud
+  {
+    category: 'Google Drive & Cloud',
+    q: 'How does the Google Drive downloader work?',
+    a: 'Paste any public Google Drive sharing link (e.g., drive.google.com/file/d/.../view). XulfMedia converts the link into a direct stream URL that bypasses the Google preview screen and downloads directly to your device.'
+  },
+  {
+    category: 'Google Drive & Cloud',
+    q: 'What if a Google Drive file has exceeded its download quota?',
+    a: 'Our resolver connects directly to the underlying Google storage endpoints using direct download protocols, allowing you to bypass typical 24-hour preview throttling limits.'
+  },
+  {
+    category: 'Google Drive & Cloud',
+    q: 'Can I download entire Google Drive folders?',
+    a: 'Currently, XulfMedia supports individual files up to 2 GB. For folders, please download each file individually or generate a shared zip file inside Google Drive first.'
+  },
+
+  // File Types & Formats
+  {
+    category: 'File Types & Formats',
+    q: 'What direct file types are supported?',
+    a: 'XulfMedia supports virtually any direct file extension, including PDFs, DOCX, XLSX, PPTX, ZIP, RAR, 7Z, TAR, ISO, APK, EXE, DMG, MP3, FLAC, MP4, and MKV.'
+  },
+  {
+    category: 'File Types & Formats',
+    q: 'Is there a file size limit?',
+    a: 'Direct file streaming has no artificial cap, but server streams are optimized for files up to 2 GB for reliable performance across all internet connection speeds.'
+  },
+  {
+    category: 'File Types & Formats',
+    q: 'Can I resume interrupted downloads?',
+    a: 'Yes. Direct links generated by XulfMedia support HTTP Range headers, which allows your browser or download manager (e.g. IDM) to pause and resume downloads.'
+  },
+
+  // Safety & Privacy
+  {
+    category: 'Safety & Privacy',
+    q: 'Is XulfMedia completely safe and virus-free?',
+    a: 'Yes. XulfMedia does not host third-party advertisements, popup redirects, or malware installers. The streams are fetched directly from verified public sources over secure SSL/TLS connections.'
+  },
+  {
+    category: 'Safety & Privacy',
+    q: 'Does XulfMedia store my downloads or log my personal information?',
+    a: 'No. Download links are processed ephemeral in-memory streams. We do not store downloaded files on our servers, and your download history is saved only locally in your browser storage.'
+  },
+  {
+    category: 'Safety & Privacy',
+    q: 'Is it legal to download videos and files with XulfMedia?',
+    a: 'XulfMedia is designed for personal archival and educational purposes. You should only download media that you own, that is licensed under Creative Commons, or where you have permission from the content copyright owner.'
+  }
+];
+
+const FaqsPage = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All Questions');
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const filteredFaqs = useMemo(() => {
+    return ALL_FAQS.filter((faq) => {
+      const matchesCategory = activeCategory === 'All Questions' || faq.category === activeCategory;
+      const matchesSearch = !searchQuery.trim() || 
+        faq.q.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        faq.a.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [searchQuery, activeCategory]);
+
+  return (
+    <div className="w-full py-4 sm:py-8 animate-in fade-in duration-300">
+      {/* Page Header */}
+      <div className="text-center max-w-2xl mx-auto mb-10">
+        <Link 
+          to="/" 
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#FF0038] mb-4 transition-colors"
+        >
+          <ArrowLeft size={14} />
+          <span>Back to Downloader</span>
+        </Link>
+
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-50 text-[#FF0038] text-xs font-bold tracking-wider uppercase mb-3">
+          <HelpCircle size={14} />
+          Help & Support Center
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-[#0F172A] tracking-tight mb-3">
+          Frequently Asked Questions
+        </h1>
+        <p className="text-sm sm:text-base text-[#64748B] leading-relaxed font-normal">
+          Everything you need to know about downloading files, videos, social media reels, and cloud links with XulfMedia.
+        </p>
+
+        {/* Live Search Input */}
+        <div className="mt-8 relative max-w-lg mx-auto">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search questions: 1080p, Instagram, Google Drive, watermark..."
+            className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm text-sm outline-none focus:border-[#FF0038]/60 focus:ring-4 focus:ring-rose-50 transition-all"
+          />
+        </div>
+      </div>
+
+      {/* Category Pills */}
+      <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
+        {FAQ_CATEGORIES.map((cat) => {
+          const isActive = activeCategory === cat;
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveCategory(cat)}
+              className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                isActive 
+                  ? 'bg-[#FF0038] text-white shadow-md shadow-red-500/20' 
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-[#E2E8F0]'
+              }`}
+            >
+              {cat}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* FAQ Accordion List */}
+      <div className="max-w-3xl mx-auto space-y-3 mb-16">
+        {filteredFaqs.length > 0 ? (
+          filteredFaqs.map((faq, index) => {
+            const isOpen = openFaq === index;
+            return (
+              <div
+                key={index}
+                className="studio-card rounded-2xl border border-[#E2E8F0] overflow-hidden bg-white transition-all shadow-xs"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(isOpen ? null : index)}
+                  className="w-full px-5 sm:px-6 py-4 text-left flex items-center justify-between gap-4 font-bold text-sm sm:text-base text-[#0F172A] hover:text-[#FF0038] transition-colors cursor-pointer"
+                >
+                  <span className="flex-1">{faq.q}</span>
+                  <ChevronDown
+                    size={18}
+                    className={`text-slate-400 shrink-0 transition-transform duration-200 ${
+                      isOpen ? 'rotate-180 text-[#FF0038]' : ''
+                    }`}
+                  />
+                </button>
+                {isOpen && (
+                  <div className="px-5 sm:px-6 pb-5 pt-1 text-xs sm:text-sm text-[#475569] leading-relaxed border-t border-slate-100 animate-in fade-in duration-150">
+                    <p>{faq.a}</p>
+                    <div className="mt-3 flex items-center gap-1.5 text-[11px] font-mono font-medium text-slate-400">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                        {faq.category}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-12 studio-card rounded-2xl bg-white border border-[#E2E8F0]">
+            <HelpCircle size={36} className="text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-700">No questions found</p>
+            <p className="text-xs text-slate-400 mt-1">Try searching with another keyword or select "All Questions".</p>
+          </div>
+        )}
+      </div>
+
+      {/* Still Have Questions Box */}
+      <div className="max-w-3xl mx-auto studio-card p-6 sm:p-8 rounded-3xl bg-white border border-[#E2E8F0] text-center shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#6366F1] flex items-center justify-center mx-auto mb-3">
+          <MessageCircle size={22} />
+        </div>
+        <h3 className="font-bold text-base sm:text-lg text-[#0F172A] mb-1">Still have questions?</h3>
+        <p className="text-xs sm:text-sm text-[#64748B] mb-5 max-w-md mx-auto">
+          Need support with a specific file format or link? Connect with the developer or file an issue on GitHub.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/"
+            className="btn-primary px-5 py-2.5 rounded-xl text-xs font-bold"
+          >
+            Start Downloading
+          </Link>
+          <a
+            href="https://github.com/vamsi3126/secure-file-transfer"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+          >
+            <span>GitHub Support</span>
+            <ExternalLink size={13} />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FaqsPage;
